@@ -6,7 +6,7 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/JetManiack/go-ai-executor/internal/storage"
+	"github.com/JetManiack/mcp-sandbox/internal/storage"
 )
 
 func TestAgentTokenLifecycle(t *testing.T) {

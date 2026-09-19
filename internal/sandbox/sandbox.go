@@ -18,9 +18,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/JetManiack/go-ai-executor/internal/procexec"
-	"github.com/JetManiack/go-ai-executor/internal/sandboxop"
-	"github.com/JetManiack/go-ai-executor/internal/stream"
+	"github.com/JetManiack/mcp-sandbox/internal/procexec"
+	"github.com/JetManiack/mcp-sandbox/internal/sandboxop"
+	"github.com/JetManiack/mcp-sandbox/internal/stream"
 )
 
 var (

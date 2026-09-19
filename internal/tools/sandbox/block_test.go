@@ -1,4 +1,4 @@
-package mcpserver
+package sandbox
 
 import (
 	"context"
@@ -7,7 +7,8 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/JetManiack/go-ai-executor/internal/storage"
+	"github.com/JetManiack/mcp-sandbox/internal/auth"
+	"github.com/JetManiack/mcp-sandbox/internal/storage"
 )
 
 // mustBlock blocks agentID's sandbox on behalf of a freshly-provisioned admin.
@@ -24,15 +25,12 @@ func mustBlock(t *testing.T, db *gorm.DB, agentID, reason string) *storage.Sandb
 	return block
 }
 
-// TestBlockedSandboxRefusesEveryTool is the enforcement half of the emergency
-// stop: killing the running processes is pointless if the next call starts more.
 func TestBlockedSandboxRefusesEveryTool(t *testing.T) {
 	db := openTestDB(t)
 	agent, token := mustAgentWithToken(t, db, "runaway")
-	session := connectSession(t, newTestServer(t, testDeps(t, db)), token)
+	registrar := newTestRegistrar(t, db)
+	session := connectSession(t, newTestServer(t, registrar, db), token)
 
-	// Write a file before the block, so read_file has something it would
-	// otherwise succeed at.
 	if res := callTool(t, session, "write_file", map[string]any{"path": "a.txt", "content": "x"}); res.IsError {
 		t.Fatalf("write_file before block: %s", contentText(res.Content))
 	}
@@ -59,8 +57,6 @@ func TestBlockedSandboxRefusesEveryTool(t *testing.T) {
 			}
 
 			message := contentText(res.Content)
-			// The agent has to be able to tell an operator decision from a
-			// transient failure, or it will simply retry the block forever.
 			for _, want := range []string{"administratively blocked", "Grace", "spawning processes in a loop", "do not retry"} {
 				if !strings.Contains(message, want) {
 					t.Errorf("error message %q does not mention %q", message, want)
@@ -73,7 +69,8 @@ func TestBlockedSandboxRefusesEveryTool(t *testing.T) {
 func TestReleasedSandboxResumes(t *testing.T) {
 	db := openTestDB(t)
 	agent, token := mustAgentWithToken(t, db, "runaway")
-	session := connectSession(t, newTestServer(t, testDeps(t, db)), token)
+	registrar := newTestRegistrar(t, db)
+	session := connectSession(t, newTestServer(t, registrar, db), token)
 
 	mustBlock(t, db, agent.ID, "just checking")
 	if res := callTool(t, session, "list_dir", map[string]any{}); !res.IsError {
@@ -93,19 +90,16 @@ func TestReleasedSandboxResumes(t *testing.T) {
 	}
 }
 
-// TestBlockIsReadPerCallNotCached covers the decision to hit the database on
-// every tool call: a block applied by another replica has to take effect on the
-// next call, without this process being told about it.
 func TestBlockIsReadPerCallNotCached(t *testing.T) {
 	db := openTestDB(t)
 	agent, token := mustAgentWithToken(t, db, "agent-1")
-	session := connectSession(t, newTestServer(t, testDeps(t, db)), token)
+	registrar := newTestRegistrar(t, db)
+	session := connectSession(t, newTestServer(t, registrar, db), token)
 
 	if res := callTool(t, session, "list_dir", map[string]any{}); res.IsError {
 		t.Fatalf("list_dir before block: %s", contentText(res.Content))
 	}
 
-	// Written straight to the database, as a second replica would.
 	mustBlock(t, db, agent.ID, "blocked elsewhere")
 
 	if res := callTool(t, session, "list_dir", map[string]any{}); !res.IsError {
@@ -113,33 +107,26 @@ func TestBlockIsReadPerCallNotCached(t *testing.T) {
 	}
 }
 
-// TestUnreadableBlockStateFailsClosed checks the direction the code errs in when
-// it cannot tell whether a sandbox is blocked.
 func TestUnreadableBlockStateFailsClosed(t *testing.T) {
 	db := openTestDB(t)
 	agent := mustAgent(t, db, "agent-1")
-	deps := testDeps(t, db)
+	registrar := newTestRegistrar(t, db)
 
-	// Drop the table the block check reads, so the query fails rather than
-	// returning "no block".
 	if err := db.Migrator().DropTable(&storage.SandboxBlock{}); err != nil {
 		t.Fatalf("drop sandbox_blocks: %v", err)
 	}
 
-	ctx := WithActorForTesting(context.Background(), agent)
-	if _, _, err := listDirHandler(deps)(ctx, nil, ListDirInput{}); err == nil {
+	ctx := auth.WithActorForTesting(context.Background(), agent)
+	if _, _, err := listDirHandler(registrar)(ctx, nil, ListDirInput{}); err == nil {
 		t.Error("list_dir succeeded although block state could not be verified")
 	}
 }
 
-// TestTimeoutKeepsPartialOutput is the server's half of the same defect: the
-// SDK's typed-handler path only assembles structured output when the handler
-// returns no error, so returning the timeout to it would drop everything the
-// command had already printed.
 func TestTimeoutKeepsPartialOutput(t *testing.T) {
 	db := openTestDB(t)
 	_, token := mustAgentWithToken(t, db, "agent-1")
-	session := connectSession(t, newTestServer(t, testDeps(t, db)), token)
+	registrar := newTestRegistrar(t, db)
+	session := connectSession(t, newTestServer(t, registrar, db), token)
 
 	result := callTool(t, session, "exec_command", map[string]any{
 		"command":     "/bin/sh",

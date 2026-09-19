@@ -18,8 +18,8 @@ import (
 
 	"github.com/urfave/cli/v3"
 
-	"github.com/JetManiack/go-ai-executor/internal/localexec"
-	"github.com/JetManiack/go-ai-executor/internal/localmcp"
+	"github.com/JetManiack/mcp-sandbox/internal/localexec"
+	"github.com/JetManiack/mcp-sandbox/internal/localmcp"
 )
 
 // version is stamped at build time by the Makefile (-X main.version=...).

@@ -9,7 +9,7 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/JetManiack/go-ai-executor/internal/storage"
+	"github.com/JetManiack/mcp-sandbox/internal/storage"
 )
 
 func openTestDB(t *testing.T) *gorm.DB {

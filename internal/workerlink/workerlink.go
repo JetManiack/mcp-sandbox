@@ -21,9 +21,9 @@ import (
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
 
-	"github.com/JetManiack/go-ai-executor/internal/sandbox"
-	"github.com/JetManiack/go-ai-executor/internal/stream"
-	"github.com/JetManiack/go-ai-executor/internal/workerproto"
+	"github.com/JetManiack/mcp-sandbox/internal/sandbox"
+	"github.com/JetManiack/mcp-sandbox/internal/stream"
+	"github.com/JetManiack/mcp-sandbox/internal/workerproto"
 )
 
 const (

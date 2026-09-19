@@ -1,4 +1,4 @@
-package mcpserver
+package sandbox
 
 import (
 	"strings"
@@ -6,12 +6,10 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/JetManiack/go-ai-executor/internal/storage"
+	"github.com/JetManiack/mcp-sandbox/internal/storage"
 )
 
-// journalFor reads back what the journal recorded for one agent, oldest first —
-// the order the actions happened in, which is how anyone reading a journal wants
-// them.
+// journalFor reads back what the journal recorded for one agent, oldest first.
 func journalFor(t *testing.T, db *gorm.DB, actorID string) []storage.AuditEvent {
 	t.Helper()
 
@@ -28,7 +26,8 @@ func journalFor(t *testing.T, db *gorm.DB, actorID string) []storage.AuditEvent 
 func TestAToolCallLeavesAPairOfJournalRows(t *testing.T) {
 	db := openTestDB(t)
 	agent, token := mustAgentWithToken(t, db, "agent-1")
-	session := connectSession(t, newTestServer(t, testDeps(t, db)), token)
+	registrar := newTestRegistrar(t, db)
+	session := connectSession(t, newTestServer(t, registrar, db), token)
 
 	if res := callTool(t, session, "write_file", map[string]any{
 		"path": "notes.txt", "content": "twelve bytes",
@@ -57,7 +56,6 @@ func TestAToolCallLeavesAPairOfJournalRows(t *testing.T) {
 	if finished.Bytes != len("twelve bytes") {
 		t.Errorf("bytes = %d, want %d", finished.Bytes, len("twelve bytes"))
 	}
-	// Which worker served it is the thing an operator cannot reconstruct later.
 	if finished.WorkerID == "" {
 		t.Error("no worker recorded")
 	}
@@ -69,7 +67,8 @@ func TestAToolCallLeavesAPairOfJournalRows(t *testing.T) {
 func TestTheJournalRecordsWhatACommandWas(t *testing.T) {
 	db := openTestDB(t)
 	agent, token := mustAgentWithToken(t, db, "agent-1")
-	session := connectSession(t, newTestServer(t, testDeps(t, db)), token)
+	registrar := newTestRegistrar(t, db)
+	session := connectSession(t, newTestServer(t, registrar, db), token)
 
 	if res := callTool(t, session, "exec_command", map[string]any{
 		"command": "/bin/echo", "args": []any{"hello", "world"},
@@ -81,9 +80,6 @@ func TestTheJournalRecordsWhatACommandWas(t *testing.T) {
 	if len(events) != 2 {
 		t.Fatalf("rows = %d, want two", len(events))
 	}
-	// The program and its arguments, because "ran a command" answers nothing.
-	// Kept as a quoted vector rather than a line — see
-	// TestTheArgumentVectorIsRecordedAsAVector for why.
 	if got := events[0].Target; !strings.Contains(got, `"/bin/echo"`) ||
 		!strings.Contains(got, `"hello"`) || !strings.Contains(got, `"world"`) {
 		t.Errorf("target = %s, want the program and each argument", got)
@@ -96,12 +92,9 @@ func TestTheJournalRecordsWhatACommandWas(t *testing.T) {
 func TestATimedOutCommandIsNotJournalledAsSuccess(t *testing.T) {
 	db := openTestDB(t)
 	agent, token := mustAgentWithToken(t, db, "agent-1")
-	session := connectSession(t, newTestServer(t, testDeps(t, db)), token)
+	registrar := newTestRegistrar(t, db)
+	session := connectSession(t, newTestServer(t, registrar, db), token)
 
-	// A timeout is the service killing an agent's command, and this journal is the
-	// only record of it — the logs say nothing. It was filed as "ok" because the
-	// handler returns no error: the tool call succeeded in reporting a command
-	// that was cut short.
 	res := callTool(t, session, "exec_command", map[string]any{
 		"command": "/bin/sleep", "args": []any{"30"}, "timeout_sec": 1,
 	})
@@ -117,8 +110,6 @@ func TestATimedOutCommandIsNotJournalledAsSuccess(t *testing.T) {
 	if finished.Outcome != storage.AuditOutcomeTimeout {
 		t.Errorf("outcome = %q, want %q", finished.Outcome, storage.AuditOutcomeTimeout)
 	}
-	// Succeeded, failed and forcibly stopped have to be three different things in
-	// a record somebody reviews.
 	if finished.Outcome == storage.AuditOutcomeOK {
 		t.Error("a killed command is indistinguishable from one that succeeded")
 	}
@@ -133,10 +124,9 @@ func TestATimedOutCommandIsNotJournalledAsSuccess(t *testing.T) {
 func TestACommandsExitCodeIsRecorded(t *testing.T) {
 	db := openTestDB(t)
 	agent, token := mustAgentWithToken(t, db, "agent-1")
-	session := connectSession(t, newTestServer(t, testDeps(t, db)), token)
+	registrar := newTestRegistrar(t, db)
+	session := connectSession(t, newTestServer(t, registrar, db), token)
 
-	// A non-zero exit is a successful tool call reporting a failed command, so the
-	// outcome stays ok — but the code is what a reviewer actually wants.
 	if res := callTool(t, session, "exec_command", map[string]any{
 		"command": "/bin/sh", "args": []any{"-c", "exit 42"},
 	}); res.IsError {
@@ -156,15 +146,13 @@ func TestACommandsExitCodeIsRecorded(t *testing.T) {
 func TestTheArgumentVectorIsRecordedAsAVector(t *testing.T) {
 	db := openTestDB(t)
 	agent, token := mustAgentWithToken(t, db, "agent-1")
-	session := connectSession(t, newTestServer(t, testDeps(t, db)), token)
+	registrar := newTestRegistrar(t, db)
+	session := connectSession(t, newTestServer(t, registrar, db), token)
 
 	callTool(t, session, "exec_command", map[string]any{
 		"command": "/bin/sh", "args": []any{"-c", "true & true"},
 	})
 
-	// exec_command takes a vector so no shell reinterprets it. Flattened into a
-	// line for the journal, `["sh" "-c" "a & b"]` reads back as a shell command
-	// that means something else — in a record whose whole job is saying what ran.
 	target := journalFor(t, db, agent.ID)[0].Target
 	if !strings.Contains(target, `"-c"`) || !strings.Contains(target, `"true & true"`) {
 		t.Errorf("target = %s, want the arguments kept apart", target)
@@ -182,7 +170,8 @@ func TestABlockedCallIsJournalledAsBlockedNotFailed(t *testing.T) {
 		t.Fatalf("BlockSandbox: %v", err)
 	}
 
-	session := connectSession(t, newTestServer(t, testDeps(t, db)), token)
+	registrar := newTestRegistrar(t, db)
+	session := connectSession(t, newTestServer(t, registrar, db), token)
 	if res := callTool(t, session, "read_file", map[string]any{"path": "anything.txt"}); !res.IsError {
 		t.Fatal("a blocked agent's call succeeded")
 	}
@@ -191,8 +180,6 @@ func TestABlockedCallIsJournalledAsBlockedNotFailed(t *testing.T) {
 	if len(events) != 2 {
 		t.Fatalf("rows = %d, want the refusal recorded as a pair like any other call", len(events))
 	}
-	// "Was this agent stopped" and "did this agent's calls fail" are different
-	// questions, and a journal that files them together answers neither.
 	if events[1].Outcome != storage.AuditOutcomeBlocked {
 		t.Errorf("outcome = %q, want %q", events[1].Outcome, storage.AuditOutcomeBlocked)
 	}
@@ -204,7 +191,8 @@ func TestABlockedCallIsJournalledAsBlockedNotFailed(t *testing.T) {
 func TestAFailedCallIsJournalledWithItsError(t *testing.T) {
 	db := openTestDB(t)
 	agent, token := mustAgentWithToken(t, db, "agent-1")
-	session := connectSession(t, newTestServer(t, testDeps(t, db)), token)
+	registrar := newTestRegistrar(t, db)
+	session := connectSession(t, newTestServer(t, registrar, db), token)
 
 	if res := callTool(t, session, "read_file", map[string]any{"path": "not-there.txt"}); !res.IsError {
 		t.Fatal("reading a missing file succeeded")

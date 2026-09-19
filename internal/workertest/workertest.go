@@ -14,10 +14,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/JetManiack/go-ai-executor/internal/sandbox"
-	"github.com/JetManiack/go-ai-executor/internal/stream"
-	"github.com/JetManiack/go-ai-executor/internal/workerhub"
-	"github.com/JetManiack/go-ai-executor/internal/workerlink"
+	"github.com/JetManiack/mcp-sandbox/internal/sandbox"
+	"github.com/JetManiack/mcp-sandbox/internal/stream"
+	"github.com/JetManiack/mcp-sandbox/internal/workerhub"
+	"github.com/JetManiack/mcp-sandbox/internal/workerlink"
 )
 
 // Token is the shared secret the harness's workers present.

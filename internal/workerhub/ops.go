@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/JetManiack/go-ai-executor/internal/sandbox"
-	"github.com/JetManiack/go-ai-executor/internal/workerproto"
+	"github.com/JetManiack/mcp-sandbox/internal/sandbox"
+	"github.com/JetManiack/mcp-sandbox/internal/workerproto"
 )
 
 // The methods below are what the MCP tools and the REST API call. Each is one

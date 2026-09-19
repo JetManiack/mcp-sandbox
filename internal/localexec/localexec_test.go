@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/JetManiack/go-ai-executor/internal/localexec"
+	"github.com/JetManiack/mcp-sandbox/internal/localexec"
 )
 
 func newRunner(t *testing.T, cfg localexec.Config) *localexec.Runner {

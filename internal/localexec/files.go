@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/JetManiack/go-ai-executor/internal/procexec"
+	"github.com/JetManiack/mcp-sandbox/internal/procexec"
 )
 
 // FileInfo describes one directory entry. The JSON shape matches

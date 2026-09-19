@@ -7,7 +7,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"github.com/JetManiack/go-ai-executor/internal/localexec"
+	"github.com/JetManiack/mcp-sandbox/internal/localexec"
 )
 
 // The schemas below mirror the server's tools of the same names, so a client can

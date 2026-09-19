@@ -5,13 +5,14 @@ package mcpserver
 
 import (
 	"context"
-	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"gorm.io/gorm"
 
-	"github.com/JetManiack/go-ai-executor/internal/workerproto"
+	"github.com/JetManiack/mcp-sandbox/internal/auth"
+	"github.com/JetManiack/mcp-sandbox/internal/workerproto"
 )
 
 // Executor is where commands actually run: a pool of worker processes reached over
@@ -31,80 +32,48 @@ type Executor interface {
 	Kill(ctx context.Context, agentID, byActor, reason string) (int, error)
 }
 
-// ServerName is the MCP implementation name advertised to clients.
-const ServerName = "go-ai-executor"
+// ToolRegistrar is implemented by domain tool packages. Handler calls Register
+// on each registrar to let it add its tools to the MCP server.
+type ToolRegistrar interface {
+	Register(srv *mcp.Server, db *gorm.DB)
+}
 
-// fallbackVersion is reported when Deps.Version is empty (an unstamped
-// `go build`, as opposed to a release built through the Makefile).
+// ServerName is the MCP implementation name advertised to clients.
+const ServerName = "mcp-sandbox"
+
+// fallbackVersion is reported when no version was stamped at build time.
 const fallbackVersion = "dev"
 
-// Deps is everything the MCP surface needs: the executor that runs the work, and
-// the database the agents' identities and block state live in.
-type Deps struct {
-	DB       *gorm.DB
-	Executor Executor
-
-	// Version is advertised to MCP clients as the server version.
-	Version string
+// clearWriteDeadline removes any per-connection write deadline set by the HTTP
+// server before the request handler runs. The MCP streamable-HTTP transport
+// holds a response open for the lifetime of the session; any finite deadline
+// set at the server level would sever it mid-session.
+func clearWriteDeadline(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.NewResponseController(w).SetWriteDeadline(time.Time{})
+		next.ServeHTTP(w, r)
+	})
 }
 
-// RegisterTools adds every MCP tool this server exposes to server.
-func RegisterTools(server *mcp.Server, deps Deps) {
-	// Each handler is wrapped for the journal here rather than journalling inside
-	// itself, so a tool added later is recorded by construction. The function
-	// beside each name is what that tool's row says it was aimed at.
-	mcp.AddTool(server, &mcp.Tool{
-		Name:        "exec_command",
-		Description: "Execute a shell command inside the sandbox directory with timeout and environment isolation",
-	}, audited(deps, "exec_command", func(in ExecCommandInput) string {
-		// Quoted as a vector rather than joined into a line. exec_command takes an
-		// argument vector precisely so no shell reinterprets it, and flattening it
-		// for the journal put that back: ["sh" "-c" "a & b"] read back as a shell
-		// line means something else entirely.
-		return fmt.Sprintf("%q", append([]string{in.Command}, in.Args...))
-	}, execCommandHandler(deps)))
-
-	mcp.AddTool(server, &mcp.Tool{
-		Name:        "read_file",
-		Description: "Read file contents relative to the sandbox directory",
-	}, audited(deps, "read_file", func(in ReadFileInput) string { return in.Path }, readFileHandler(deps)))
-
-	mcp.AddTool(server, &mcp.Tool{
-		Name:        "write_file",
-		Description: "Write text content to a file relative to the sandbox directory",
-	}, audited(deps, "write_file", func(in WriteFileInput) string { return in.Path }, writeFileHandler(deps)))
-
-	mcp.AddTool(server, &mcp.Tool{
-		Name:        "list_dir",
-		Description: "List files and subdirectories inside the sandbox directory",
-	}, audited(deps, "list_dir", func(in ListDirInput) string { return in.Path }, listDirHandler(deps)))
-
-	mcp.AddTool(server, &mcp.Tool{
-		Name:        "delete_file",
-		Description: "Delete a file or directory inside the sandbox directory",
-	}, audited(deps, "delete_file", func(in DeleteFileInput) string { return in.Path }, deleteFileHandler(deps)))
-
-	mcp.AddTool(server, &mcp.Tool{
-		Name:        "get_sandbox_status",
-		Description: "Get configuration status and root path of the sandbox environment",
-	}, audited(deps, "get_sandbox_status", nil, sandboxStatusHandler(deps)))
-}
-
-// NewServer builds the MCP server with every tool registered.
-func NewServer(deps Deps) *mcp.Server {
-	version := deps.Version
-	if version == "" {
-		version = fallbackVersion
+// NewServer builds an *mcp.Server with all provided tool registrars applied.
+// db may be nil; registrars that use it skip journalling when it is absent.
+func NewServer(version string, tools []ToolRegistrar, db *gorm.DB) *mcp.Server {
+	v := version
+	if v == "" {
+		v = fallbackVersion
 	}
-	server := mcp.NewServer(&mcp.Implementation{Name: ServerName, Version: version}, nil)
-	RegisterTools(server, deps)
-	return server
+	srv := mcp.NewServer(&mcp.Implementation{Name: ServerName, Version: v}, nil)
+	for _, t := range tools {
+		t.Register(srv, db)
+	}
+	return srv
 }
 
-// NewHTTPHandler builds the full /mcp handler: Streamable HTTP transport,
-// every registered tool, wrapped in bearer-token authentication.
-func NewHTTPHandler(deps Deps) http.Handler {
-	server := NewServer(deps)
-	mcpHandler := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return server }, nil)
-	return RequireAgentToken(deps.DB, mcpHandler)
+// Handler builds the /mcp HTTP handler from a database and a set of tool
+// registrars. Registrars are called in order; the resulting handler is wrapped
+// in bearer-token auth and write-deadline clearing.
+func Handler(db *gorm.DB, version string, tools []ToolRegistrar) http.Handler {
+	srv := NewServer(version, tools, db)
+	mcpHandler := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return srv }, nil)
+	return clearWriteDeadline(auth.RequireBearer(db, mcpHandler))
 }

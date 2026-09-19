@@ -12,7 +12,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/JetManiack/go-ai-executor/internal/stream"
+	"github.com/JetManiack/mcp-sandbox/internal/stream"
 )
 
 // Path is where workers dial in on the server.

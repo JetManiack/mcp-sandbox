@@ -11,7 +11,7 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"gorm.io/gorm"
 
-	"github.com/JetManiack/go-ai-executor/internal/storage"
+	"github.com/JetManiack/mcp-sandbox/internal/storage"
 )
 
 // testPostgresDSNEnv names the environment variable that points the suite at a

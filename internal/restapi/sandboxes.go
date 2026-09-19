@@ -11,9 +11,9 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/JetManiack/go-ai-executor/internal/humanauth"
-	"github.com/JetManiack/go-ai-executor/internal/storage"
-	"github.com/JetManiack/go-ai-executor/internal/stream"
+	"github.com/JetManiack/mcp-sandbox/internal/humanauth"
+	"github.com/JetManiack/mcp-sandbox/internal/storage"
+	"github.com/JetManiack/mcp-sandbox/internal/stream"
 )
 
 // sandboxResponse is one row of the sandbox list.

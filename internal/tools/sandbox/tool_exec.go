@@ -1,4 +1,4 @@
-package mcpserver
+package sandbox
 
 import (
 	"context"
@@ -6,9 +6,9 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"github.com/JetManiack/go-ai-executor/internal/sandbox"
-	"github.com/JetManiack/go-ai-executor/internal/storage"
-	"github.com/JetManiack/go-ai-executor/internal/workerproto"
+	sandboxpkg "github.com/JetManiack/mcp-sandbox/internal/sandbox"
+	"github.com/JetManiack/mcp-sandbox/internal/storage"
+	"github.com/JetManiack/mcp-sandbox/internal/workerproto"
 )
 
 type ExecCommandInput struct {
@@ -33,26 +33,17 @@ type ExecCommandOutput struct {
 	// outcome is how this handler tells the journal what it decided, and it is
 	// unexported because it is not part of the tool's contract — an agent learns
 	// the same thing from the error text it already gets.
-	//
-	// Without it the journal has to re-derive the answer from a message, or get it
-	// wrong: a timed-out command returns no error from this handler, deliberately,
-	// because the tool call succeeded in reporting a command that was cut short.
-	// The journal filed that as "ok" until a deployment review caught it.
 	outcome string
 }
 
-func execCommandHandler(deps Deps) mcp.ToolHandlerFor[ExecCommandInput, ExecCommandOutput] {
+func execCommandHandler(r *Registrar) mcp.ToolHandlerFor[ExecCommandInput, ExecCommandOutput] {
 	return func(ctx context.Context, req *mcp.CallToolRequest, in ExecCommandInput) (*mcp.CallToolResult, ExecCommandOutput, error) {
-		agentID, err := agentForCall(ctx, deps)
+		agentID, err := agentForCall(ctx, r.db)
 		if err != nil {
 			return nil, ExecCommandOutput{}, err
 		}
 
-		// The worker publishes started/output/finished events as the command runs
-		// and forwards them here, so a human watching sees a long-running
-		// command's output while it is still producing it rather than in one dump
-		// at the end.
-		res, execErr := deps.Executor.Exec(ctx, agentID, workerproto.ExecRequest{
+		res, execErr := r.executor.Exec(ctx, agentID, workerproto.ExecRequest{
 			Command:    in.Command,
 			Args:       in.Args,
 			TimeoutSec: in.TimeoutSec,
@@ -70,16 +61,13 @@ func execCommandHandler(deps Deps) mcp.ToolHandlerFor[ExecCommandInput, ExecComm
 		// failed command, so only a genuine execution failure becomes a tool
 		// error.
 		switch {
-		case errors.Is(execErr, sandbox.ErrCommandTimeout):
-			// The command ran, so whatever it printed first is worth keeping.
+		case errors.Is(execErr, sandboxpkg.ErrCommandTimeout):
 			output.outcome = storage.AuditOutcomeTimeout
 			return cutShortResult(execErr, output.Stdout, output.Stderr), output, nil
-		case errors.Is(execErr, sandbox.ErrCommandStopped):
+		case errors.Is(execErr, sandboxpkg.ErrCommandStopped):
 			output.outcome = storage.AuditOutcomeStopped
 			return cutShortResult(execErr, output.Stdout, output.Stderr), output, nil
 		case execErr != nil:
-			// It never ran — a missing program, an invalid working directory —
-			// so there is no output to report alongside the error.
 			return nil, output, execErr
 		}
 		return nil, output, nil
@@ -88,11 +76,6 @@ func execCommandHandler(deps Deps) mcp.ToolHandlerFor[ExecCommandInput, ExecComm
 
 // cutShortResult reports a command that ran and was then cut short, keeping the
 // output it produced.
-//
-// Returning the error to the SDK instead would drop it: the typed-handler path
-// only assembles structured content when the handler returns no error, so the
-// agent would get "timed out" and nothing else. Partial output is usually the
-// most useful thing a timed-out build produces — it is where it got stuck.
 func cutShortResult(reason error, stdout, stderr string) *mcp.CallToolResult {
 	text := reason.Error()
 	if stdout != "" || stderr != "" {
@@ -104,3 +87,8 @@ func cutShortResult(reason error, stdout, stderr string) *mcp.CallToolResult {
 		Content: []mcp.Content{&mcp.TextContent{Text: text}},
 	}
 }
+
+// Audit interface implementations for ExecCommandOutput.
+func (o ExecCommandOutput) auditBytes() int      { return len(o.Stdout) + len(o.Stderr) }
+func (o ExecCommandOutput) auditOutcome() string { return o.outcome }
+func (o ExecCommandOutput) auditExitCode() int   { return o.ExitCode }

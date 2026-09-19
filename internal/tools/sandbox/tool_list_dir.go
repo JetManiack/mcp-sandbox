@@ -1,4 +1,4 @@
-package mcpserver
+package sandbox
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"github.com/JetManiack/go-ai-executor/internal/workerproto"
+	"github.com/JetManiack/mcp-sandbox/internal/workerproto"
 )
 
 type ListDirInput struct {
@@ -18,23 +18,20 @@ type ListDirOutput struct {
 	Files []workerproto.FileInfo `json:"files" jsonschema:"entries in the directory, non-recursive"`
 }
 
-func listDirHandler(deps Deps) mcp.ToolHandlerFor[ListDirInput, ListDirOutput] {
+func listDirHandler(r *Registrar) mcp.ToolHandlerFor[ListDirInput, ListDirOutput] {
 	return func(ctx context.Context, req *mcp.CallToolRequest, in ListDirInput) (*mcp.CallToolResult, ListDirOutput, error) {
 		path := in.Path
 		if path == "" {
 			path = "."
 		}
-		agentID, err := agentForCall(ctx, deps)
+		agentID, err := agentForCall(ctx, r.db)
 		if err != nil {
 			return nil, ListDirOutput{}, err
 		}
-		files, err := deps.Executor.ListDir(ctx, agentID, path)
+		files, err := r.executor.ListDir(ctx, agentID, path)
 		if err != nil {
 			return nil, ListDirOutput{}, fmt.Errorf("list directory: %w", err)
 		}
-		// An empty directory must serialize as [] rather than null: a client
-		// distinguishing "no entries" from "field absent" would otherwise see the
-		// latter.
 		if files == nil {
 			files = []workerproto.FileInfo{}
 		}

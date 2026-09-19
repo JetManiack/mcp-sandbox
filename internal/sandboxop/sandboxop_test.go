@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/JetManiack/go-ai-executor/internal/sandboxop"
+	"github.com/JetManiack/mcp-sandbox/internal/sandboxop"
 )
 
 // TestHelperProcess is the child. It is a test rather than a fixture binary so

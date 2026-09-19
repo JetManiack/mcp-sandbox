@@ -23,6 +23,7 @@ type Actor struct {
 type AgentCredential struct {
 	ID         string     `gorm:"type:char(36);primaryKey" json:"id"`
 	ActorID    string     `gorm:"type:char(36);not null;index" json:"actor_id"`
+	Label      string     `gorm:"type:text" json:"label,omitempty"`
 	TokenHash  string     `gorm:"type:char(64);not null;uniqueIndex" json:"-"`
 	CreatedAt  time.Time  `json:"created_at"`
 	RevokedAt  *time.Time `json:"revoked_at,omitempty"`

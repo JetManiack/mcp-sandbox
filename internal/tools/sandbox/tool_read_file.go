@@ -1,4 +1,4 @@
-package mcpserver
+package sandbox
 
 import (
 	"context"
@@ -17,19 +17,21 @@ type ReadFileOutput struct {
 	Content string `json:"content" jsonschema:"the file's contents"`
 }
 
-func readFileHandler(deps Deps) mcp.ToolHandlerFor[ReadFileInput, ReadFileOutput] {
+func readFileHandler(r *Registrar) mcp.ToolHandlerFor[ReadFileInput, ReadFileOutput] {
 	return func(ctx context.Context, req *mcp.CallToolRequest, in ReadFileInput) (*mcp.CallToolResult, ReadFileOutput, error) {
 		if in.Path == "" {
 			return nil, ReadFileOutput{}, errors.New("path cannot be empty")
 		}
-		agentID, err := agentForCall(ctx, deps)
+		agentID, err := agentForCall(ctx, r.db)
 		if err != nil {
 			return nil, ReadFileOutput{}, err
 		}
-		content, err := deps.Executor.ReadFile(ctx, agentID, in.Path)
+		content, err := r.executor.ReadFile(ctx, agentID, in.Path)
 		if err != nil {
 			return nil, ReadFileOutput{}, fmt.Errorf("read file: %w", err)
 		}
 		return nil, ReadFileOutput{Path: in.Path, Content: content}, nil
 	}
 }
+
+func (o ReadFileOutput) auditBytes() int { return len(o.Content) }

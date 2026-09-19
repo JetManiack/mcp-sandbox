@@ -7,7 +7,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"github.com/JetManiack/go-ai-executor/internal/localexec"
+	"github.com/JetManiack/mcp-sandbox/internal/localexec"
 )
 
 // ExecCommandInput is a superset of the server's input of the same name.

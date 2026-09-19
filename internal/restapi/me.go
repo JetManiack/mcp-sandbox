@@ -4,7 +4,7 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/JetManiack/go-ai-executor/internal/humanauth"
+	"github.com/JetManiack/mcp-sandbox/internal/humanauth"
 )
 
 type meResponse struct {

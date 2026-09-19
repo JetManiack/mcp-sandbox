@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/JetManiack/go-ai-executor/internal/frontend"
+	"github.com/JetManiack/mcp-sandbox/internal/frontend"
 )
 
 // TestEmbeddedAssetsAreServed is the check that catches a build which produced a
@@ -28,7 +28,7 @@ func TestEmbeddedAssetsAreServed(t *testing.T) {
 		wantContent string
 	}{
 		{path: "/", wantStatus: http.StatusOK, wantContent: "<div id=\"root\">"},
-		{path: "/index.html", wantStatus: http.StatusOK, wantContent: "go-ai-executor"},
+		{path: "/index.html", wantStatus: http.StatusOK, wantContent: "mcp-sandbox"},
 		{path: "/js/app.bundle.js", wantStatus: http.StatusOK},
 		{path: "/nope.txt", wantStatus: http.StatusNotFound},
 	}

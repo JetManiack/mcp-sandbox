@@ -9,7 +9,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/JetManiack/go-ai-executor/internal/health"
+	"github.com/JetManiack/mcp-sandbox/internal/health"
 )
 
 func TestLivezAlwaysOK(t *testing.T) {

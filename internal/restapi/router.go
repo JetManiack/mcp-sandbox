@@ -6,9 +6,9 @@ import (
 	"github.com/go-chi/chi/v5"
 	"gorm.io/gorm"
 
-	"github.com/JetManiack/go-ai-executor/internal/humanauth"
-	"github.com/JetManiack/go-ai-executor/internal/stream"
-	"github.com/JetManiack/go-ai-executor/internal/workerhub"
+	"github.com/JetManiack/mcp-sandbox/internal/humanauth"
+	"github.com/JetManiack/mcp-sandbox/internal/stream"
+	"github.com/JetManiack/mcp-sandbox/internal/workerhub"
 )
 
 // Options is what the REST API needs: the database, the event bus it streams
@@ -29,6 +29,12 @@ type Options struct {
 // state, meaning the emergency block and agent credentials, additionally
 // requires role admin.
 func NewRouter(opts Options) http.Handler {
+	return NewRouterWithDomain(opts)
+}
+
+// NewRouterWithDomain builds the API handler and optionally mounts additional
+// domain-specific sub-routes via the provided functions.
+func NewRouterWithDomain(opts Options, domain ...func(chi.Router)) http.Handler {
 	r := chi.NewRouter()
 	r.Use(humanauth.RequireHumanAuth(opts.DB, opts.AuthProvider))
 
@@ -46,15 +52,30 @@ func NewRouter(opts Options) http.Handler {
 		})
 	})
 
-	r.Route("/agents", func(r chi.Router) {
+	// /actors (renamed from /agents)
+	r.Route("/actors", func(r chi.Router) {
 		r.Use(humanauth.RequireAdmin)
 		r.Get("/", listAgentsHandler(opts.DB))
 		r.Post("/", createAgentHandler(opts.DB))
 		r.Delete("/{id}", deleteAgentHandler(opts.DB))
-		r.Get("/{id}/tokens", listAgentTokensHandler(opts.DB))
-		r.Post("/{id}/tokens", issueTokenHandler(opts.DB))
-		r.Delete("/{id}/tokens/{tokenID}", revokeTokenHandler(opts.DB))
+		r.Get("/{id}/credentials", listAgentTokensHandler(opts.DB))
+		r.Post("/{id}/credentials", issueTokenHandler(opts.DB))
 	})
+
+	// /credentials/{id} for revocation (renamed from /agents/{id}/tokens/{tokenID})
+	r.Route("/credentials", func(r chi.Router) {
+		r.Use(humanauth.RequireAdmin)
+		r.Delete("/{id}", revokeTokenHandler(opts.DB))
+	})
+
+	// /tool-calls — adapter over the AuditEvent journal
+	r.Get("/tool-calls", listToolCallsHandler(opts.DB))
+	r.Get("/tool-calls/{id}", getToolCallHandler(opts.DB))
+
+	// Domain-specific routes (e.g. /workers from workerhub)
+	for _, fn := range domain {
+		fn(r)
+	}
 
 	return r
 }

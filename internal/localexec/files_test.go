@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/JetManiack/go-ai-executor/internal/localexec"
+	"github.com/JetManiack/mcp-sandbox/internal/localexec"
 )
 
 func TestReadAndWriteFile(t *testing.T) {

@@ -10,10 +10,10 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/JetManiack/go-ai-executor/internal/humanauth"
-	"github.com/JetManiack/go-ai-executor/internal/restapi"
-	"github.com/JetManiack/go-ai-executor/internal/storage"
-	"github.com/JetManiack/go-ai-executor/internal/workertest"
+	"github.com/JetManiack/mcp-sandbox/internal/humanauth"
+	"github.com/JetManiack/mcp-sandbox/internal/restapi"
+	"github.com/JetManiack/mcp-sandbox/internal/storage"
+	"github.com/JetManiack/mcp-sandbox/internal/workertest"
 )
 
 // roleProvider authenticates every request as a fixed identity with a chosen

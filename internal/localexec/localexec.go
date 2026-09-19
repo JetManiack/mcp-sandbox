@@ -26,7 +26,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/JetManiack/go-ai-executor/internal/procexec"
+	"github.com/JetManiack/mcp-sandbox/internal/procexec"
 )
 
 // Defaults chosen for a developer's machine rather than a shared server: local

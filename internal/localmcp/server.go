@@ -18,13 +18,13 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"github.com/JetManiack/go-ai-executor/internal/localexec"
+	"github.com/JetManiack/mcp-sandbox/internal/localexec"
 )
 
 // ServerName is the MCP implementation name advertised to clients. It differs
 // from the server binary's so a client's logs say which one it is talking to,
 // even though the tools are named the same.
-const ServerName = "go-ai-executor-local"
+const ServerName = "mcp-sandbox-local"
 
 const fallbackVersion = "dev"
 

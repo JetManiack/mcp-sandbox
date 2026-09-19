@@ -24,7 +24,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/JetManiack/go-ai-executor/internal/procexec"
+	"github.com/JetManiack/mcp-sandbox/internal/procexec"
 )
 
 // Op names a file operation.

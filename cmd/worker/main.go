@@ -22,9 +22,9 @@ import (
 
 	"github.com/urfave/cli/v3"
 
-	"github.com/JetManiack/go-ai-executor/internal/sandbox"
-	"github.com/JetManiack/go-ai-executor/internal/sandboxop"
-	"github.com/JetManiack/go-ai-executor/internal/workerlink"
+	"github.com/JetManiack/mcp-sandbox/internal/sandbox"
+	"github.com/JetManiack/mcp-sandbox/internal/sandboxop"
+	"github.com/JetManiack/mcp-sandbox/internal/workerlink"
 )
 
 // version is stamped at build time by the Makefile (-X main.version=...).

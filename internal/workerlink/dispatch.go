@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/JetManiack/go-ai-executor/internal/sandbox"
-	"github.com/JetManiack/go-ai-executor/internal/workerproto"
+	"github.com/JetManiack/mcp-sandbox/internal/sandbox"
+	"github.com/JetManiack/mcp-sandbox/internal/workerproto"
 )
 
 // dispatch performs one operation against the agent's sandbox on this worker.

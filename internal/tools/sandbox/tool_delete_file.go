@@ -1,4 +1,4 @@
-package mcpserver
+package sandbox
 
 import (
 	"context"
@@ -18,16 +18,16 @@ type DeleteFileOutput struct {
 	WasDirectory bool   `json:"was_directory" jsonschema:"true when the path was a directory and its whole subtree was removed"`
 }
 
-func deleteFileHandler(deps Deps) mcp.ToolHandlerFor[DeleteFileInput, DeleteFileOutput] {
+func deleteFileHandler(r *Registrar) mcp.ToolHandlerFor[DeleteFileInput, DeleteFileOutput] {
 	return func(ctx context.Context, req *mcp.CallToolRequest, in DeleteFileInput) (*mcp.CallToolResult, DeleteFileOutput, error) {
 		if in.Path == "" {
 			return nil, DeleteFileOutput{}, errors.New("path cannot be empty")
 		}
-		agentID, err := agentForCall(ctx, deps)
+		agentID, err := agentForCall(ctx, r.db)
 		if err != nil {
 			return nil, DeleteFileOutput{}, err
 		}
-		result, err := deps.Executor.DeleteFile(ctx, agentID, in.Path)
+		result, err := r.executor.DeleteFile(ctx, agentID, in.Path)
 		if err != nil {
 			return nil, DeleteFileOutput{}, fmt.Errorf("delete: %w", err)
 		}

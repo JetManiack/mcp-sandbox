@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/JetManiack/go-ai-executor/internal/procexec"
-	"github.com/JetManiack/go-ai-executor/internal/sandboxop"
+	"github.com/JetManiack/mcp-sandbox/internal/procexec"
+	"github.com/JetManiack/mcp-sandbox/internal/sandboxop"
 )
 
 // DefaultVenvDir is where each sandbox gets its Python environment.

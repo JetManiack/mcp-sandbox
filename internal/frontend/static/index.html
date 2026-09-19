@@ -375,16 +375,63 @@
       color: var(--text-dim);
     }
     .login-gate a { color: var(--credential); }
+
+    /* ---- tool-call history table ---- */
+    .tc-scroll { overflow-x: auto; }
+    .tc-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    .tc-table th {
+      text-align: left;
+      font: 500 11px/1 var(--font-body);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      padding: 0.4rem 0.7rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .tc-table td {
+      padding: 0.45rem 0.7rem;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+    .tc-row { cursor: pointer; }
+    .tc-row:hover td { background: var(--surface); }
+    .tc-row-open td { background: var(--surface); }
+    .tc-tool { font: 400 12px var(--font-mono); color: var(--credential); }
+    .tc-detail td { padding: 0; }
+    .tc-detail-inner {
+      padding: 0.7rem 0.9rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.7rem;
+      background: var(--terminal-bg);
+      border-bottom: 1px solid var(--border);
+    }
+    .tc-label {
+      display: block;
+      font: 500 10px var(--font-body);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-dim);
+      margin-bottom: 0.25rem;
+    }
+    .tc-json {
+      margin: 0;
+      font: 400 12px/1.5 var(--font-mono);
+      color: var(--text);
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
   </style>
 </head>
 <body>
   <div id="root"></div>
-  <!-- Vendored at build time (see the Makefile's vendor-frontend-js target) and
-       served from our own origin — no runtime dependency on a third-party CDN,
-       and no CDN-supplied code executing in the same origin as authenticated
-       sessions. -->
-  <script src="/js/vendor/react.production.min.js"></script>
-  <script src="/js/vendor/react-dom.production.min.js"></script>
+  <!-- React and all app code are bundled together by esbuild (npm run build in
+       web/). No separate vendor scripts are needed: the bundle is self-contained
+       and served from our own origin. -->
   <script src="/js/app.bundle.js"></script>
 </body>
 </html>

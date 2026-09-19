@@ -17,15 +17,16 @@ import (
 	"github.com/urfave/cli/v3"
 	"gorm.io/gorm"
 
-	"github.com/JetManiack/go-ai-executor/internal/frontend"
-	"github.com/JetManiack/go-ai-executor/internal/health"
-	"github.com/JetManiack/go-ai-executor/internal/humanauth"
-	"github.com/JetManiack/go-ai-executor/internal/mcpserver"
-	"github.com/JetManiack/go-ai-executor/internal/restapi"
-	"github.com/JetManiack/go-ai-executor/internal/storage"
-	"github.com/JetManiack/go-ai-executor/internal/stream"
-	"github.com/JetManiack/go-ai-executor/internal/workerhub"
-	"github.com/JetManiack/go-ai-executor/internal/workerproto"
+	"github.com/JetManiack/mcp-sandbox/internal/frontend"
+	"github.com/JetManiack/mcp-sandbox/internal/health"
+	"github.com/JetManiack/mcp-sandbox/internal/humanauth"
+	"github.com/JetManiack/mcp-sandbox/internal/mcpserver"
+	"github.com/JetManiack/mcp-sandbox/internal/restapi"
+	"github.com/JetManiack/mcp-sandbox/internal/storage"
+	"github.com/JetManiack/mcp-sandbox/internal/stream"
+	sandboxtools "github.com/JetManiack/mcp-sandbox/internal/tools/sandbox"
+	"github.com/JetManiack/mcp-sandbox/internal/workerhub"
+	"github.com/JetManiack/mcp-sandbox/internal/workerproto"
 )
 
 // version is stamped at build time by the Makefile (-X main.version=...).
@@ -195,7 +196,9 @@ func buildAppHandler(ctx context.Context, cmd *cli.Command, bus *stream.Broadcas
 	}
 
 	mux := http.NewServeMux()
-	mux.Handle("/mcp", mcpserver.NewHTTPHandler(mcpserver.Deps{DB: db, Executor: hub, Version: version}))
+	mux.Handle("/mcp", mcpserver.Handler(db, version, []mcpserver.ToolRegistrar{
+		sandboxtools.NewRegistrar(hub, db),
+	}))
 	// Workers dial in here. Mounted on the same listener as everything else, so a
 	// deployment can put it behind the same ingress or, better, keep it on an
 	// internal Service the agents' ingress never reaches.

@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/JetManiack/go-ai-executor/internal/storage"
+	"github.com/JetManiack/mcp-sandbox/internal/storage"
 )
 
 type sandboxRow struct {

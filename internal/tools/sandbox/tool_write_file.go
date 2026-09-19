@@ -1,4 +1,4 @@
-package mcpserver
+package sandbox
 
 import (
 	"context"
@@ -18,19 +18,21 @@ type WriteFileOutput struct {
 	Bytes int    `json:"bytes" jsonschema:"number of bytes written"`
 }
 
-func writeFileHandler(deps Deps) mcp.ToolHandlerFor[WriteFileInput, WriteFileOutput] {
+func writeFileHandler(r *Registrar) mcp.ToolHandlerFor[WriteFileInput, WriteFileOutput] {
 	return func(ctx context.Context, req *mcp.CallToolRequest, in WriteFileInput) (*mcp.CallToolResult, WriteFileOutput, error) {
 		if in.Path == "" {
 			return nil, WriteFileOutput{}, errors.New("path cannot be empty")
 		}
-		agentID, err := agentForCall(ctx, deps)
+		agentID, err := agentForCall(ctx, r.db)
 		if err != nil {
 			return nil, WriteFileOutput{}, err
 		}
-		written, err := deps.Executor.WriteFile(ctx, agentID, in.Path, in.Content)
+		written, err := r.executor.WriteFile(ctx, agentID, in.Path, in.Content)
 		if err != nil {
 			return nil, WriteFileOutput{}, fmt.Errorf("write file: %w", err)
 		}
 		return nil, WriteFileOutput{Path: in.Path, Bytes: written}, nil
 	}
 }
+
+func (o WriteFileOutput) auditBytes() int { return o.Bytes }

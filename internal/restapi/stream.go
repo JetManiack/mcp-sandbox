@@ -12,8 +12,8 @@ import (
 	"github.com/coder/websocket/wsjson"
 	"github.com/go-chi/chi/v5"
 
-	"github.com/JetManiack/go-ai-executor/internal/storage"
-	"github.com/JetManiack/go-ai-executor/internal/stream"
+	"github.com/JetManiack/mcp-sandbox/internal/storage"
+	"github.com/JetManiack/mcp-sandbox/internal/stream"
 )
 
 // writeTimeout bounds a single frame write, not the connection. A watcher whose

@@ -1,4 +1,4 @@
-package mcpserver
+package sandbox
 
 import (
 	"context"
@@ -12,13 +12,12 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"gorm.io/gorm"
 
-	"github.com/JetManiack/go-ai-executor/internal/storage"
-	"github.com/JetManiack/go-ai-executor/internal/workertest"
+	"github.com/JetManiack/mcp-sandbox/internal/mcpserver"
+	"github.com/JetManiack/mcp-sandbox/internal/storage"
+	"github.com/JetManiack/mcp-sandbox/internal/workertest"
 )
 
-// openTestDB gives each test its own migrated SQLite database. The Postgres
-// backend is covered by internal/storage's suite; what matters here is the MCP
-// behavior on top of it, so this deliberately uses the zero-setup backend.
+// openTestDB gives each test its own migrated SQLite database.
 func openTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	db, err := storage.Open(filepath.Join(t.TempDir(), "test.db"))
@@ -48,18 +47,23 @@ func mustAgentWithToken(t *testing.T, db *gorm.DB, name string) (*storage.Actor,
 	return agent, token
 }
 
-// testDeps wires the MCP surface to a real worker over a real link.
-//
-// A fake executor would be cheaper and would pass while the wire contract was
-// broken: execution crosses a process boundary now, so these tests are only worth
-// as much as the link they run over.
-func testDeps(t *testing.T, db *gorm.DB) Deps {
+// newTestRegistrar wires the sandbox tools to a real worker over a real link.
+func newTestRegistrar(t *testing.T, db *gorm.DB) *Registrar {
 	t.Helper()
-	return Deps{DB: db, Executor: workertest.StartOne(t).Hub, Version: "test"}
+	hub := workertest.StartOne(t).Hub
+	return NewRegistrar(hub, db)
 }
 
-// bearerTransport attaches a fixed bearer token to every request, the way a
-// configured MCP client would.
+// newTestServer boots the real MCP handler over HTTP.
+func newTestServer(t *testing.T, registrar *Registrar, db *gorm.DB) *httptest.Server {
+	t.Helper()
+	handler := mcpserver.Handler(db, "test", []mcpserver.ToolRegistrar{registrar})
+	server := httptest.NewServer(handler)
+	t.Cleanup(server.Close)
+	return server
+}
+
+// bearerTransport attaches a fixed bearer token to every request.
 type bearerTransport struct {
 	token string
 	base  http.RoundTripper
@@ -77,18 +81,7 @@ func (b bearerTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 	return base.RoundTrip(clone)
 }
 
-// newTestServer boots the real /mcp handler over HTTP, so auth, transport and
-// tool dispatch are exercised on the same path a real agent takes.
-func newTestServer(t *testing.T, deps Deps) *httptest.Server {
-	t.Helper()
-	server := httptest.NewServer(NewHTTPHandler(deps))
-	t.Cleanup(server.Close)
-	return server
-}
-
-// callTool invokes name on session and fails the test on a transport-level
-// error. A tool that returns an error to the agent is not a transport error:
-// it comes back with CallToolResult.IsError set, which callers assert on.
+// callTool invokes name on session and fails the test on a transport-level error.
 func callTool(t *testing.T, session *mcp.ClientSession, name string, args map[string]any) *mcp.CallToolResult {
 	t.Helper()
 	result, err := session.CallTool(context.Background(), &mcp.CallToolParams{Name: name, Arguments: args})
@@ -98,8 +91,7 @@ func callTool(t *testing.T, session *mcp.ClientSession, name string, args map[st
 	return result
 }
 
-// contentText flattens a tool result's content blocks into one string, for
-// tests that only care whether some substring is present.
+// contentText flattens a tool result's content blocks into one string.
 func contentText(content []mcp.Content) string {
 	var sb strings.Builder
 	for _, block := range content {
@@ -111,11 +103,6 @@ func contentText(content []mcp.Content) string {
 }
 
 // outputField reads one field of a tool's structured output.
-//
-// Preferred over substring-matching the text content when the value can contain
-// characters encoding/json escapes: `&&` arrives as \u0026\u0026 and `>` as
-// \u003e in the JSON text, so a raw substring check on it fails for output that
-// is in fact correct.
 func outputField(t *testing.T, result *mcp.CallToolResult, key string) string {
 	t.Helper()
 	fields, ok := result.StructuredContent.(map[string]any)
@@ -133,8 +120,7 @@ func outputField(t *testing.T, result *mcp.CallToolResult, key string) string {
 	return text
 }
 
-// connectSession returns a connected MCP client session against server,
-// authenticating with token.
+// connectSession returns a connected MCP client session against server.
 func connectSession(t *testing.T, server *httptest.Server, token string) *mcp.ClientSession {
 	t.Helper()
 

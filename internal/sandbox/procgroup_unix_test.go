@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/JetManiack/go-ai-executor/internal/stream"
+	"github.com/JetManiack/mcp-sandbox/internal/stream"
 )
 
 // commandTimeout is deliberately far longer than any deadline these tests wait

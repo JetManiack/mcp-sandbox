@@ -11,11 +11,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/JetManiack/go-ai-executor/internal/sandbox"
-	"github.com/JetManiack/go-ai-executor/internal/stream"
-	"github.com/JetManiack/go-ai-executor/internal/workerlink"
-	"github.com/JetManiack/go-ai-executor/internal/workerproto"
-	"github.com/JetManiack/go-ai-executor/internal/workertest"
+	"github.com/JetManiack/mcp-sandbox/internal/sandbox"
+	"github.com/JetManiack/mcp-sandbox/internal/stream"
+	"github.com/JetManiack/mcp-sandbox/internal/workerlink"
+	"github.com/JetManiack/mcp-sandbox/internal/workerproto"
+	"github.com/JetManiack/mcp-sandbox/internal/workertest"
 )
 
 const waitFor = 10 * time.Second

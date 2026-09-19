@@ -8,7 +8,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"gorm.io/gorm"
 
-	"github.com/JetManiack/go-ai-executor/internal/storage"
+	"github.com/JetManiack/mcp-sandbox/internal/storage"
 )
 
 type createAgentRequest struct {
@@ -119,7 +119,7 @@ func issueTokenHandler(db *gorm.DB) http.HandlerFunc {
 
 func revokeTokenHandler(db *gorm.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		err := storage.RevokeAgentToken(db, chi.URLParam(r, "tokenID"))
+		err := storage.RevokeAgentToken(db, chi.URLParam(r, "id"))
 		if errors.Is(err, storage.ErrCredentialNotFound) {
 			writeError(w, http.StatusNotFound, err)
 			return

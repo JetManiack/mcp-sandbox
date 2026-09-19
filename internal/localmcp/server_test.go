@@ -9,9 +9,10 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"github.com/JetManiack/go-ai-executor/internal/localexec"
-	"github.com/JetManiack/go-ai-executor/internal/localmcp"
-	"github.com/JetManiack/go-ai-executor/internal/mcpserver"
+	"github.com/JetManiack/mcp-sandbox/internal/localexec"
+	"github.com/JetManiack/mcp-sandbox/internal/localmcp"
+	"github.com/JetManiack/mcp-sandbox/internal/mcpserver"
+	sandboxtools "github.com/JetManiack/mcp-sandbox/internal/tools/sandbox"
 )
 
 // connectSession wires a client to the server over in-memory transports, so tool
@@ -101,9 +102,10 @@ func TestAdvertisesItsTools(t *testing.T) {
 func TestToolNamesMatchTheServer(t *testing.T) {
 	local := toolNames(t, localmcp.NewServer(mustRunner(t, t.TempDir()), "test"))
 
-	// Deps can be zero: listing tools never reaches a handler, so no database or
-	// sandbox manager is needed to ask the server what it advertises.
-	server := toolNames(t, mcpserver.NewServer(mcpserver.Deps{Version: "test"}))
+	// nil executor and nil db: listing tools never reaches a handler, so no
+	// sandbox manager or database is needed to ask the server what it advertises.
+	registrar := sandboxtools.NewRegistrar(nil, nil)
+	server := toolNames(t, mcpserver.NewServer("test", []mcpserver.ToolRegistrar{registrar}, nil))
 
 	slices.Sort(local)
 	slices.Sort(server)

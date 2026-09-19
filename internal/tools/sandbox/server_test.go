@@ -1,4 +1,4 @@
-package mcpserver
+package sandbox
 
 import (
 	"context"
@@ -9,13 +9,16 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/JetManiack/go-ai-executor/internal/storage"
+	"github.com/JetManiack/mcp-sandbox/internal/auth"
+	"github.com/JetManiack/mcp-sandbox/internal/mcpserver"
+	"github.com/JetManiack/mcp-sandbox/internal/storage"
 )
 
 func TestListToolsAdvertisesSchemas(t *testing.T) {
 	db := openTestDB(t)
 	_, token := mustAgentWithToken(t, db, "agent-1")
-	session := connectSession(t, newTestServer(t, testDeps(t, db)), token)
+	registrar := newTestRegistrar(t, db)
+	session := connectSession(t, newTestServer(t, registrar, db), token)
 
 	result, err := session.ListTools(context.Background(), nil)
 	if err != nil {
@@ -25,7 +28,6 @@ func TestListToolsAdvertisesSchemas(t *testing.T) {
 	names := make([]string, 0, len(result.Tools))
 	for _, tool := range result.Tools {
 		names = append(names, tool.Name)
-		// A tool with no input schema is one the agent has to guess at.
 		if tool.InputSchema == nil {
 			t.Errorf("tool %q advertises no input schema", tool.Name)
 		}
@@ -44,7 +46,8 @@ func TestListToolsAdvertisesSchemas(t *testing.T) {
 func TestRequireAgentTokenRejectsBadCredentials(t *testing.T) {
 	db := openTestDB(t)
 	_, token := mustAgentWithToken(t, db, "agent-1")
-	handler := NewHTTPHandler(testDeps(t, db))
+	registrar := newTestRegistrar(t, db)
+	handler := mcpserver.Handler(db, "test", []mcpserver.ToolRegistrar{registrar})
 
 	tests := []struct {
 		name   string
@@ -68,8 +71,6 @@ func TestRequireAgentTokenRejectsBadCredentials(t *testing.T) {
 			if rec.Code != http.StatusUnauthorized {
 				t.Errorf("status = %d, want %d", rec.Code, http.StatusUnauthorized)
 			}
-			// Without this header a client cannot tell an auth failure from a
-			// generic 401 and has nothing to act on.
 			if rec.Header().Get("WWW-Authenticate") == "" {
 				t.Error("401 response carries no WWW-Authenticate header")
 			}
@@ -88,65 +89,64 @@ func TestRevokedTokenIsRejected(t *testing.T) {
 		t.Fatalf("RevokeAgentToken: %v", err)
 	}
 
+	registrar := newTestRegistrar(t, db)
 	req := httptest.NewRequest(http.MethodPost, "/mcp", strings.NewReader("{}"))
 	req.Header.Set("Authorization", "Bearer "+token)
 	rec := httptest.NewRecorder()
-	NewHTTPHandler(testDeps(t, db)).ServeHTTP(rec, req)
+	mcpserver.Handler(db, "test", []mcpserver.ToolRegistrar{registrar}).ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusUnauthorized {
 		t.Errorf("status = %d, want %d for a revoked token", rec.Code, http.StatusUnauthorized)
 	}
 }
 
-// TestToolsFailClosedWithoutActor covers the invariant that replaced the old
-// "default" sandbox fallback: a handler reached without an authenticated actor
-// must error, not quietly operate on the shared sandbox root.
+// TestToolsFailClosedWithoutActor covers the invariant that a handler reached
+// without an authenticated actor must error, not quietly operate.
 func TestToolsFailClosedWithoutActor(t *testing.T) {
-	deps := testDeps(t, openTestDB(t))
+	db := openTestDB(t)
+	registrar := newTestRegistrar(t, db)
 	ctx := context.Background()
 
 	t.Run("read_file", func(t *testing.T) {
-		_, _, err := readFileHandler(deps)(ctx, nil, ReadFileInput{Path: "x"})
+		_, _, err := readFileHandler(registrar)(ctx, nil, ReadFileInput{Path: "x"})
 		requireErrNoActor(t, err)
 	})
 	t.Run("write_file", func(t *testing.T) {
-		_, _, err := writeFileHandler(deps)(ctx, nil, WriteFileInput{Path: "x", Content: "y"})
+		_, _, err := writeFileHandler(registrar)(ctx, nil, WriteFileInput{Path: "x", Content: "y"})
 		requireErrNoActor(t, err)
 	})
 	t.Run("list_dir", func(t *testing.T) {
-		_, _, err := listDirHandler(deps)(ctx, nil, ListDirInput{})
+		_, _, err := listDirHandler(registrar)(ctx, nil, ListDirInput{})
 		requireErrNoActor(t, err)
 	})
 	t.Run("delete_file", func(t *testing.T) {
-		_, _, err := deleteFileHandler(deps)(ctx, nil, DeleteFileInput{Path: "x"})
+		_, _, err := deleteFileHandler(registrar)(ctx, nil, DeleteFileInput{Path: "x"})
 		requireErrNoActor(t, err)
 	})
 	t.Run("get_sandbox_status", func(t *testing.T) {
-		_, _, err := sandboxStatusHandler(deps)(ctx, nil, SandboxStatusInput{})
+		_, _, err := sandboxStatusHandler(registrar)(ctx, nil, SandboxStatusInput{})
 		requireErrNoActor(t, err)
 	})
 	t.Run("exec_command", func(t *testing.T) {
-		_, _, err := execCommandHandler(deps)(ctx, nil, ExecCommandInput{Command: "true"})
+		_, _, err := execCommandHandler(registrar)(ctx, nil, ExecCommandInput{Command: "true"})
 		requireErrNoActor(t, err)
 	})
 }
 
 func requireErrNoActor(t *testing.T, err error) {
 	t.Helper()
-	if !errors.Is(err, ErrNoActor) {
+	if !errors.Is(err, auth.ErrNoActor) {
 		t.Errorf("error = %v, want ErrNoActor", err)
 	}
 }
 
-// TestSandboxesAreIsolatedPerAgent proves the jail is per-agent and not merely
-// per-process: one agent's file must be invisible and unreachable from
-// another's session.
 func TestSandboxesAreIsolatedPerAgent(t *testing.T) {
 	db := openTestDB(t)
 	_, tokenA := mustAgentWithToken(t, db, "agent-a")
 	_, tokenB := mustAgentWithToken(t, db, "agent-b")
 
-	server := newTestServer(t, testDeps(t, db))
+	registrar := newTestRegistrar(t, db)
+	server := newTestServer(t, registrar, db)
 	sessionA := connectSession(t, server, tokenA)
 	sessionB := connectSession(t, server, tokenB)
 
@@ -168,17 +168,12 @@ func TestSandboxesAreIsolatedPerAgent(t *testing.T) {
 	}
 }
 
-// TestExecCommandRunsInTheAgentSandbox checks the happy path end to end: the
-// command runs, its output comes back, and it ran with the sandbox as its
-// working directory.
 func TestExecCommandRunsInTheAgentSandbox(t *testing.T) {
 	db := openTestDB(t)
 	_, token := mustAgentWithToken(t, db, "agent-1")
-	session := connectSession(t, newTestServer(t, testDeps(t, db)), token)
+	registrar := newTestRegistrar(t, db)
+	session := connectSession(t, newTestServer(t, registrar, db), token)
 
-	// One program, one argument vector: there is no shell to interpret a compound
-	// command, so the working directory and the arguments are checked with
-	// separate calls.
 	pwd := callTool(t, session, "exec_command", map[string]any{"command": "pwd"})
 	if pwd.IsError {
 		t.Fatalf("exec_command(pwd) failed: %s", contentText(pwd.Content))
@@ -210,20 +205,17 @@ func TestExecCommandRunsInTheAgentSandbox(t *testing.T) {
 	}
 }
 
-// TestExecCommandDoesNotInterpretShellSyntax pins the contract change: a compound
-// command used to be handed to `sh -c` and interpreted. It is now a program name,
-// so it fails to resolve rather than quietly running two commands.
 func TestExecCommandDoesNotInterpretShellSyntax(t *testing.T) {
 	db := openTestDB(t)
 	_, token := mustAgentWithToken(t, db, "agent-1")
-	session := connectSession(t, newTestServer(t, testDeps(t, db)), token)
+	registrar := newTestRegistrar(t, db)
+	session := connectSession(t, newTestServer(t, registrar, db), token)
 
 	result := callTool(t, session, "exec_command", map[string]any{"command": "pwd && echo hello"})
 	if !result.IsError {
 		t.Errorf("a compound command was accepted as a program name: %s", contentText(result.Content))
 	}
 
-	// Shell metacharacters in an argument are literal text, not syntax.
 	echoed := callTool(t, session, "exec_command", map[string]any{
 		"command": "echo",
 		"args":    []string{"a && b | c > d"},
@@ -236,13 +228,11 @@ func TestExecCommandDoesNotInterpretShellSyntax(t *testing.T) {
 	}
 }
 
-// TestExecCommandRejectsAMissingProgram checks the error an agent gets for a
-// program that is not installed, which after this change is the shape of every
-// typo.
 func TestExecCommandRejectsAMissingProgram(t *testing.T) {
 	db := openTestDB(t)
 	_, token := mustAgentWithToken(t, db, "agent-1")
-	session := connectSession(t, newTestServer(t, testDeps(t, db)), token)
+	registrar := newTestRegistrar(t, db)
+	session := connectSession(t, newTestServer(t, registrar, db), token)
 
 	result := callTool(t, session, "exec_command", map[string]any{"command": "definitely-not-installed"})
 	if !result.IsError {

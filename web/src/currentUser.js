@@ -1,12 +1,14 @@
-export function useCurrentUser() {
-  const [user, setUser] = React.useState(null);
-  const [error, setError] = React.useState(null);
+import { useEffect, useState } from 'react';
 
-  React.useEffect(() => {
-    fetch("/api/me")
+export function useCurrentUser() {
+  const [user, setUser] = useState(null);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    fetch('/api/me')
       .then((res) => {
         if (!res.ok) {
-          throw new Error("not authenticated");
+          throw new Error('not authenticated');
         }
         return res.json();
       })

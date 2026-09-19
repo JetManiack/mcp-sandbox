@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/JetManiack/go-ai-executor/internal/stream"
+	"github.com/JetManiack/mcp-sandbox/internal/stream"
 )
 
 // shellProgram and shellScript spell out a shell invocation for the tests whose

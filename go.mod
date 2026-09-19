@@ -1,4 +1,4 @@
-module github.com/JetManiack/go-ai-executor
+module github.com/JetManiack/mcp-sandbox
 
 go 1.26.5
 
