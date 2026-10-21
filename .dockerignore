@@ -17,3 +17,4 @@ internal/frontend/static/fonts/
 .superpowers/
 docs/
 .DS_Store
+web/node_modules
