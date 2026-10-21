@@ -68,9 +68,15 @@ FRONTEND_VENDOR_DIR := internal/frontend/static/js/vendor
 FRONTEND_FONTS_DIR  := internal/frontend/static/fonts
 
 .PHONY: generate frontend vendor-frontend-js vendor-frontend-fonts
-generate: vendor-frontend-js vendor-frontend-fonts ## Generate the frontend bundle (go generate -> esbuild) and vendor pinned JS/font deps
+generate: web/node_modules vendor-frontend-js vendor-frontend-fonts ## Generate the frontend bundle (go generate -> esbuild) and vendor pinned JS/font deps
 	@command -v esbuild >/dev/null || (echo "esbuild not found. Install: 'brew install esbuild' or 'npm i -g esbuild'"; exit 1)
 	go generate ./internal/frontend/...
+
+# esbuild resolves react/react-dom imports from web/node_modules; without
+# this the bundle step fails on a bare checkout (CI and the Docker build).
+web/node_modules: web/package-lock.json
+	npm ci --prefix web
+	@touch web/node_modules
 
 frontend: generate ## Alias for generate
 
