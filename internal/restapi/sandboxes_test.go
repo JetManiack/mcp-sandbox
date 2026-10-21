@@ -68,10 +68,10 @@ func TestViewerCannotManageAgents(t *testing.T) {
 		path   string
 		body   any
 	}{
-		{http.MethodGet, "/agents", nil},
-		{http.MethodPost, "/agents", map[string]string{"display_name": "new"}},
-		{http.MethodPost, "/agents/" + agent.ID + "/tokens", nil},
-		{http.MethodDelete, "/agents/" + agent.ID, nil},
+		{http.MethodGet, "/actors/", nil},
+		{http.MethodPost, "/actors/", map[string]string{"display_name": "new"}},
+		{http.MethodPost, "/actors/" + agent.ID + "/credentials", nil},
+		{http.MethodDelete, "/actors/" + agent.ID, nil},
 	} {
 		resp := api.do(t, tc.method, tc.path, tc.body)
 		if resp.StatusCode != http.StatusForbidden {

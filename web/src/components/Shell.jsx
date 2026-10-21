@@ -17,7 +17,7 @@ export default function Shell({ pages, user, children }) {
   return (
     <>
       <header className="site">
-        <h1>go-ai-executor</h1>
+        <h1>mcp-sandbox</h1>
         <nav className="nav-tabs">
           {navPages.map((p) => (
             <NavLink
