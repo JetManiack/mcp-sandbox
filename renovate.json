@@ -1,0 +1,31 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended"
+  ],
+  "minimumReleaseAge": "7 days",
+  "postUpdateOptions": [
+    "gomodTidy"
+  ],
+  "pinDigests": true,
+  "packageRules": [
+    {
+      "description": "No automerge: a push to main deploys to the cluster within minutes via Keel, so every bump gets a human eye",
+      "matchManagers": [
+        "gomod",
+        "dockerfile",
+        "github-actions",
+        "npm"
+      ],
+      "automerge": false
+    },
+    {
+      "description": "Group Go toolchain updates (security releases like the eMudhra CA distrust ship here)",
+      "matchDepNames": [
+        "go",
+        "golang"
+      ],
+      "groupName": "go toolchain"
+    }
+  ]
+}
