@@ -75,7 +75,7 @@ RUN set -eux; \
         python3 python3-venv python3-pip \
         git openssh-client curl \
         jq ripgrep less unzip xz-utils procps \
-        nmap hping3 tcpdump; \
+        iputils-ping traceroute dnsutils netcat-openbsd; \
     rm -rf /var/lib/apt/lists/*
 
 # The UID is pinned rather than left to useradd: a Pod with runAsNonRoot set
