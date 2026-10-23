@@ -48,6 +48,11 @@ func Configure(cmd *exec.Cmd) {
 // It needs CAP_SETUID and CAP_SETGID in the parent, which a worker pod is given
 // and a developer's machine is not — hence the zero case, and hence commands run
 // as one user outside a cluster.
+//
+// netCaps (CAP_NET_RAW, CAP_NET_ADMIN) are raised as ambient capabilities so
+// nmap/hping3/tcpdump work under the agent uid. The kernel silently ignores
+// ambient raises for caps not in the parent's permitted+inheritable sets, so
+// this has no effect on a machine or pod without those caps granted.
 func DropTo(cmd *exec.Cmd, uid uint32) {
 	if uid == 0 {
 		return
@@ -60,6 +65,7 @@ func DropTo(cmd *exec.Cmd, uid uint32) {
 		Gid:    uid,
 		Groups: []uint32{},
 	}
+	applyNetCaps(cmd)
 }
 
 // KillGroup SIGKILLs every process in the group led by pid.
