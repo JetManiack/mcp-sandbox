@@ -78,6 +78,14 @@ RUN set -eux; \
         iputils-ping traceroute dnsutils netcat-openbsd; \
     rm -rf /var/lib/apt/lists/*
 
+# iputils-ping ships with cap_net_raw+ep as a file capability xattr. With
+# NoNewPrivs: 1 (allowPrivilegeEscalation: false) the kernel refuses to exec
+# any file that has file caps, so ping fails with "Operation not permitted".
+# Stripping the xattr via cp (which does not copy xattrs) forces ping to fall
+# back to an unprivileged ICMP datagram socket — which works because
+# net.ipv4.ping_group_range is set to cover the agent uid range on the cluster.
+RUN cp /usr/bin/ping /tmp/ping && mv /tmp/ping /usr/bin/ping
+
 # The UID is pinned rather than left to useradd: a Pod with runAsNonRoot set
 # refuses to start on a non-numeric USER, because the kubelet cannot verify a name
 # is not root. 65532 is the conventional "nonroot" id.
