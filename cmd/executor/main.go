@@ -180,7 +180,7 @@ func buildAppHandler(ctx context.Context, cmd *cli.Command, bus *stream.Broadcas
 		slog.Warn("human auth running in STUB mode — do not deploy to production")
 	}
 
-	frontendFS, err := frontend.FS(cmd.Bool("devel"))
+	frontendHandler, err := frontend.Handler(cmd.Bool("devel"))
 	if err != nil {
 		return nil, health.ReadyChecker{}, fmt.Errorf("load frontend assets: %w", err)
 	}
@@ -214,7 +214,7 @@ func buildAppHandler(ctx context.Context, cmd *cli.Command, bus *stream.Broadcas
 		mux.HandleFunc("/auth/callback", oidcHandlers.Callback)
 		mux.HandleFunc("/auth/logout", oidcHandlers.Logout)
 	}
-	mux.Handle("/", http.FileServer(frontendFS))
+	mux.Handle("/", frontendHandler)
 
 	return mux, readyChecker, nil
 }
